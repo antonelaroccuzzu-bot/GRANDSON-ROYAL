@@ -144,3 +144,129 @@ if (typeof window !== "undefined") {
   window.formatStorePrice = formatStorePrice;
   window.searchStoreProducts = searchStoreProducts;
 }
+
+
+(function connectGrandsonStore() {
+  function initStore() {
+    const productGrid = document.querySelector("main.container .products");
+    if (!productGrid) return;
+
+    // Keep the existing black-and-gold design.
+    const style = document.createElement("style");
+    style.textContent = `
+      .store-tools{margin:0 0 24px}
+      .store-search{width:100%;padding:14px;border-radius:10px;
+        border:1px solid #444;background:#111;color:#fff;margin-bottom:16px}
+      .store-categories{display:flex;gap:9px;overflow-x:auto;
+        padding:4px 0 14px}
+      .store-category{white-space:nowrap;padding:10px 14px;
+        border:1px solid #444;border-radius:22px;background:#151515;
+        color:#eee;cursor:pointer}
+      .store-category.active{background:#d6b35a;color:#080808;
+        border-color:#d6b35a;font-weight:bold}
+      .store-product-image{width:100%;height:190px;object-fit:cover;
+        border-radius:12px;background:#191919}
+      .store-card{min-width:0}
+      .store-description{color:#aaa;min-height:38px}
+      .store-price-note{font-size:12px;color:#aaa;margin-top:6px}
+      .store-empty{color:#aaa;text-align:center;padding:30px}
+      @media(max-width:500px){
+        .store-product-image{height:200px}
+      }
+    `;
+    document.head.appendChild(style);
+
+    let activeCategory = "all";
+    let searchTerm = "";
+
+    const tools = document.createElement("div");
+    tools.className = "store-tools";
+    tools.innerHTML = `
+      <input class="store-search" type="search"
+        placeholder="Search products..." aria-label="Search products">
+      <div class="store-categories" aria-label="Product categories"></div>
+    `;
+
+    productGrid.parentNode.insertBefore(tools, productGrid);
+
+    const search = tools.querySelector(".store-search");
+    const categories = tools.querySelector(".store-categories");
+
+    categories.innerHTML = `
+      <button type="button" class="store-category active"
+        data-category="all">All Products</button>
+      ${STORE_CATEGORIES.map(category => `
+        <button type="button" class="store-category"
+          data-category="${category.id}">
+          ${category.icon} ${category.name}
+        </button>
+      `).join("")}
+    `;
+
+    function renderProducts() {
+      const products = searchStoreProducts(searchTerm, activeCategory);
+
+      if (!products.length) {
+        productGrid.innerHTML =
+          '<p class="store-empty">No products found. Try another search.</p>';
+        return;
+      }
+
+      productGrid.innerHTML = products.map(product => {
+        const price = formatStorePrice(product.price);
+        const canAdd = Number.isFinite(product.price) && product.price > 0;
+
+        return `
+          <article class="card store-card">
+            <img class="store-product-image"
+              src="${product.image}"
+              alt="${product.name}"
+              loading="lazy"
+              onerror="this.style.display='none'">
+            <h3>${product.name}</h3>
+            <p class="store-description">${product.description}</p>
+            <div class="price">${price}</div>
+            ${canAdd ? "" : `
+              <p class="store-price-note">
+                Price and supplier availability must be confirmed.
+              </p>
+            `}
+            <button type="button"
+              onclick="${canAdd
+                ? `addToCart('${product.name.replace(/'/g, "\\'")}',${product.price})`
+                : `window.open('https://wa.me/2348108521685?text='+encodeURIComponent('Hello GRANDSON ROYALE, please confirm the price and availability of ${encodeURIComponent(product.name)}.'),'_blank')`
+              }">
+              ${canAdd ? "ADD TO CART" : "ASK FOR PRICE"}
+            </button>
+          </article>
+        `;
+      }).join("");
+    }
+
+    search.addEventListener("input", event => {
+      searchTerm = event.target.value;
+      renderProducts();
+    });
+
+    categories.addEventListener("click", event => {
+      const button = event.target.closest("[data-category]");
+      if (!button) return;
+
+      activeCategory = button.dataset.category;
+
+      categories.querySelectorAll(".store-category").forEach(item => {
+        item.classList.toggle("active", item === button);
+      });
+
+      renderProducts();
+    });
+
+    renderProducts();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initStore);
+  } else {
+    initStore();
+  }
+})();
